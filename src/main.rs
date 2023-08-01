@@ -114,6 +114,26 @@ impl eframe::App for MyApp {
                 }
             });
 
+            ui.horizontal(|ui| {
+                ui.label("LCR Lower Limit:");
+                ui.add(egui::Slider::new(&mut self.json_data.lcr_lower_limit, 0.0..=100.0).drag_value_speed(0.01));
+            });
+
+            // update upper limit if necessary
+            if self.json_data.lcr_lower_limit > self.json_data.lcr_upper_limit {
+                self.json_data.lcr_upper_limit = self.json_data.lcr_lower_limit;
+            }
+
+            ui.horizontal(|ui| {
+                ui.label("LCR Upper Limit:");
+                ui.add(egui::Slider::new(&mut self.json_data.lcr_upper_limit, 0.0..=100.0).drag_value_speed(0.01));
+            });
+
+            // update lower limit if necessary
+            if self.json_data.lcr_lower_limit > self.json_data.lcr_upper_limit {
+                self.json_data.lcr_lower_limit = self.json_data.lcr_upper_limit;
+            }
+
             // Add more UI elements as needed for other fields
 
             if ui.button("Save").clicked() {
@@ -138,7 +158,7 @@ struct JsonData {
     assumption_profile: AssumptionProfile, // BASE CASE, SCENARIO 1, 2, 3
     optimizer: Optimizer, // "highs" "cbc" "gurobi"
     fwd_start_swap: IncludedOrExcluded,
-    // lcr_lower_limit: f32, lcr_upper_limit: f32,
+    lcr_lower_limit: f32, lcr_upper_limit: f32,
     // Add more fields as needed
 }
 
@@ -154,6 +174,7 @@ impl Default for JsonData {
             assumption_profile: AssumptionProfile::BaseCase,
             optimizer: Optimizer::Highs,
             fwd_start_swap: IncludedOrExcluded::Included,
+            lcr_lower_limit: 0.0, lcr_upper_limit: 100.0,
         }
     }
 }
