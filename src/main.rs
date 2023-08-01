@@ -2,15 +2,52 @@ use std::fs::File;
 use std::io::prelude::*;
 use serde::{Deserialize, Serialize};
 use eframe::{egui, epi};
-use egui::CtxRef;
+use egui_extras;
+use chrono::NaiveDate;
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct JsonData {
     // Define your JSON data structure here
-    // For example:
-    name: String,
-    age: u32,
+    n_stages: u32,
+    step_size_months: u32,
+    base_date: NaiveDate,
+    start_date: NaiveDate,
+    environment: Environment, // PRODUCTION, ENVIRONMENT, TESTING
+    // assumption_profile: String, // BASE CASE, SCENARIO 1, 2, 3
+    // optimizer: String, // "highs" ASK JC
+    // open_field: String, // Include vs Exclude
+    // lcr_lower_limit: f32, lcr_upper_limit: f32,
     // Add more fields as needed
+}
+
+impl Default for JsonData {
+    fn default() -> Self {
+        JsonData {
+            n_stages: 2,
+            step_size_months: 4,
+            base_date: NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
+            start_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+            environment: Environment::Production
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+enum Environment {
+    Production,
+    Development,
+    Testing,
+}
+
+impl Environment {
+    fn to_user_friendly_label(&self) -> &str {
+        match self {
+            Environment::Production => "Production",
+            Environment::Development => "Development",
+            Environment::Testing => "Testing",
+        }
+    }
 }
 
 struct MyApp {
@@ -59,21 +96,38 @@ impl epi::App for MyApp {
     fn name(&self) -> &str {
         "JSON Editor" // Provide a name for your application
     }
-    fn update(&mut self, ctx: &CtxRef, _frame: &mut epi::Frame) {
+    fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame) {
         // UI code goes here
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading(self.name());
 
             // Create UI elements to edit your JSON data
-            // For example:
             ui.horizontal(|ui| {
-                ui.label("Name:");
-                ui.text_edit_singleline(&mut self.json_data.name);
+                ui.label("Number of Stages:");
+                ui.add(egui::widgets::Slider::new(&mut self.json_data.n_stages, 1..=4));
             });
 
             ui.horizontal(|ui| {
-                ui.label("Age:");
-                ui.add(egui::widgets::Slider::new(&mut self.json_data.age, 0..=100).text("age"));
+                ui.label("Step Size in Months:");
+                ui.add(egui::widgets::Slider::new(&mut self.json_data.step_size_months, 1..=6));
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("Base Date:");
+                ui.add(egui_extras::DatePickerButton::new(&mut self.json_data.base_date));
+            });
+            
+            let environment_options = [
+                Environment::Production,
+                Environment::Development,
+                Environment::Testing,
+            ];
+
+            ui.horizontal(|ui| {
+                ui.label("Environment:");
+                for option in environment_options {
+                    ui.radio_value(&mut self.json_data.environment, option, option.to_user_friendly_label());
+                }
             });
 
             // Add more UI elements as needed for other fields
