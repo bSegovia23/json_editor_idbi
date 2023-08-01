@@ -1,12 +1,13 @@
 {
   "n_stages": 2,
-  "step_size_months": 4,
-  "base_date": "2020-01-03",
-  "start_date": "2025-01-01",
-  "environment": "PRODUCTION",
+  "step_size_months": 6,
+  "base_date": "2018-04-30",
+  "start_date": "2023-07-01",
+  "reports_folder": "Reports",
+  "environment": "TESTING",
   "assumption_profile": "BASE CASE",
-  "optimizer": "highs",
-  "fwd_start_swap": "included",
-  "lcr_lower_limit": 0.0,
-  "lcr_upper_limit": 100.0
+  "optimizer": "cbc",
+  "fwd_start_swap": "excluded",
+  "lcr_lower_limit": 52.75,
+  "lcr_upper_limit": 58.0
 }

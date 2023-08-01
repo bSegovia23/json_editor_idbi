@@ -61,6 +61,11 @@ impl eframe::App for MyApp {
                 ui.label("Start Date:");
                 ui.add(egui_extras::DatePickerButton::new(&mut self.json_data.start_date).id_source("start_date_picker"));
             });
+
+            ui.horizontal(|ui| {
+                ui.label("Reports Folder:");
+                ui.add(egui::TextEdit::singleline(&mut self.json_data.reports_folder));
+            });
             
             let environment_options = [
                 Environment::Production,
@@ -116,23 +121,19 @@ impl eframe::App for MyApp {
 
             ui.horizontal(|ui| {
                 ui.label("LCR Lower Limit:");
-                ui.add(egui::Slider::new(&mut self.json_data.lcr_lower_limit, 0.0..=100.0).drag_value_speed(0.01));
+                let response = ui.add(egui::Slider::new(&mut self.json_data.lcr_lower_limit, 0.0..=100.0).drag_value_speed(0.01));
+                if response.changed() && self.json_data.lcr_lower_limit > self.json_data.lcr_upper_limit {
+                    self.json_data.lcr_upper_limit = self.json_data.lcr_lower_limit;
+                }
             });
-
-            // update upper limit if necessary
-            if self.json_data.lcr_lower_limit > self.json_data.lcr_upper_limit {
-                self.json_data.lcr_upper_limit = self.json_data.lcr_lower_limit;
-            }
 
             ui.horizontal(|ui| {
                 ui.label("LCR Upper Limit:");
-                ui.add(egui::Slider::new(&mut self.json_data.lcr_upper_limit, 0.0..=100.0).drag_value_speed(0.01));
+                let response = ui.add(egui::Slider::new(&mut self.json_data.lcr_upper_limit, 0.0..=100.0).drag_value_speed(0.01));
+                if response.changed() && self.json_data.lcr_lower_limit > self.json_data.lcr_upper_limit {
+                    self.json_data.lcr_lower_limit = self.json_data.lcr_upper_limit;
+                }
             });
-
-            // update lower limit if necessary
-            if self.json_data.lcr_lower_limit > self.json_data.lcr_upper_limit {
-                self.json_data.lcr_lower_limit = self.json_data.lcr_upper_limit;
-            }
 
             // Add more UI elements as needed for other fields
 
@@ -154,11 +155,13 @@ struct JsonData {
     step_size_months: u32,
     base_date: NaiveDate,
     start_date: NaiveDate,
-    environment: Environment, // PRODUCTION, ENVIRONMENT, TESTING
-    assumption_profile: AssumptionProfile, // BASE CASE, SCENARIO 1, 2, 3
-    optimizer: Optimizer, // "highs" "cbc" "gurobi"
+    reports_folder: String,
+    environment: Environment,
+    assumption_profile: AssumptionProfile,
+    optimizer: Optimizer,
     fwd_start_swap: IncludedOrExcluded,
     lcr_lower_limit: f32, lcr_upper_limit: f32,
+
     // Add more fields as needed
 }
 
@@ -168,6 +171,7 @@ impl Default for JsonData {
         JsonData {
             n_stages: 2,
             step_size_months: 4,
+            reports_folder: "Reports".to_string(),
             base_date: NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
             start_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
             environment: Environment::Production,
