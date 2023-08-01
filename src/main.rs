@@ -7,10 +7,12 @@ use chrono::NaiveDate;
 
 const APP_NAME: &str = "JSON Editor";
 
+// Here we define what our app keeps in its storage.
 struct MyApp {
     json_data: JsonData,
 }
 
+// Here we define what a "new" app looks like.
 impl MyApp {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // If you want to customize GUI fonts and visuals, do it here.
@@ -19,6 +21,7 @@ impl MyApp {
     }
 }
 
+// Here we define the "default" app.
 impl Default for MyApp {
     fn default() -> Self {
         // Load the initial JSON data from a file
@@ -30,17 +33,15 @@ impl Default for MyApp {
             }
         };
 
-        MyApp { json_data }
+        MyApp { json_data } 
     }
 }
 
+// Here we define our app's UI.
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // UI code goes here
         egui::CentralPanel::default().show(ctx, |ui| {
-            // ui.heading();
-
-            // Create UI elements to edit your JSON data
+            // Create UI elements to edit our JSON data
             ui.horizontal(|ui| {
                 ui.label("Number of Stages:");
                 ui.add(egui::widgets::Slider::new(&mut self.json_data.n_stages, 1..=4));
@@ -53,7 +54,12 @@ impl eframe::App for MyApp {
 
             ui.horizontal(|ui| {
                 ui.label("Base Date:");
-                ui.add(egui_extras::DatePickerButton::new(&mut self.json_data.base_date));
+                ui.add(egui_extras::DatePickerButton::new(&mut self.json_data.base_date).id_source("base_date_picker"));
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("Start Date:");
+                ui.add(egui_extras::DatePickerButton::new(&mut self.json_data.start_date).id_source("start_date_picker"));
             });
             
             let environment_options = [
@@ -66,6 +72,45 @@ impl eframe::App for MyApp {
                 ui.label("Environment:");
                 for option in environment_options {
                     ui.radio_value(&mut self.json_data.environment, option, option.to_user_friendly_label());
+                }
+            });
+
+            let assumption_profile_options = [
+                AssumptionProfile::BaseCase,
+                AssumptionProfile::Scenario1,
+                AssumptionProfile::Scenario2,
+                AssumptionProfile::Scenario3,
+            ];
+
+            ui.horizontal(|ui| {
+                ui.label("Assumption Profile:");
+                for option in assumption_profile_options {
+                    ui.radio_value(&mut self.json_data.assumption_profile, option, option.to_user_friendly_label());
+                }
+            });
+
+            let optimizer_options = [
+                Optimizer::Highs,
+                Optimizer::Cbc,
+                Optimizer::Gurobi,
+            ];
+
+            ui.horizontal(|ui| {
+                ui.label("Optimizer:");
+                for option in optimizer_options {
+                    ui.radio_value(&mut self.json_data.optimizer, option, option.to_user_friendly_label());
+                }
+            });
+
+            let open_field_options = [
+                IncludedOrExcluded::Included,
+                IncludedOrExcluded::Excluded,
+            ];
+
+            ui.horizontal(|ui| {
+                ui.label("Forward Start Swap:");
+                for option in open_field_options {
+                    ui.radio_value(&mut self.json_data.fwd_start_swap, option, option.to_user_friendly_label());
                 }
             });
 
@@ -82,21 +127,22 @@ impl eframe::App for MyApp {
     }
 }
 
+// Here we define our JSON's data structure.
 #[derive(Debug, Deserialize, Serialize)]
 struct JsonData {
-    // Define your JSON data structure here
     n_stages: u32,
     step_size_months: u32,
     base_date: NaiveDate,
     start_date: NaiveDate,
     environment: Environment, // PRODUCTION, ENVIRONMENT, TESTING
-    // assumption_profile: String, // BASE CASE, SCENARIO 1, 2, 3
-    // optimizer: String, // "highs" ASK JC
-    // open_field: String, // Include vs Exclude
+    assumption_profile: AssumptionProfile, // BASE CASE, SCENARIO 1, 2, 3
+    optimizer: Optimizer, // "highs" "cbc" "gurobi"
+    fwd_start_swap: IncludedOrExcluded,
     // lcr_lower_limit: f32, lcr_upper_limit: f32,
     // Add more fields as needed
 }
 
+// Here we define the "default" JSON data.
 impl Default for JsonData {
     fn default() -> Self {
         JsonData {
@@ -104,25 +150,95 @@ impl Default for JsonData {
             step_size_months: 4,
             base_date: NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
             start_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-            environment: Environment::Production
+            environment: Environment::Production,
+            assumption_profile: AssumptionProfile::BaseCase,
+            optimizer: Optimizer::Highs,
+            fwd_start_swap: IncludedOrExcluded::Included,
         }
     }
 }
 
+// Here we define the possible environments.
 #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
 enum Environment {
+    #[serde(rename = "PRODUCTION")] // what should be written in the JSON
     Production,
+    #[serde(rename = "DEVELOPMENT")]
     Development,
+    #[serde(rename = "TESTING")]
     Testing,
 }
 
 impl Environment {
+    // Here we define labels for the UI.
     fn to_user_friendly_label(&self) -> &str {
         match self {
             Environment::Production => "Production",
             Environment::Development => "Development",
             Environment::Testing => "Testing",
+        }
+    }
+}
+
+// Here we define the possible assumption profiles.
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+enum AssumptionProfile {
+    #[serde(rename = "BASE CASE")]
+    BaseCase,
+    #[serde(rename = "SCENARIO 1")]
+    Scenario1,
+    #[serde(rename = "SCENARIO 2")]
+    Scenario2,
+    #[serde(rename = "SCENARIO 3")]
+    Scenario3,
+}
+
+impl AssumptionProfile {
+    fn to_user_friendly_label(&self) -> &str {
+        match self {
+            AssumptionProfile::BaseCase => "Base Case",
+            AssumptionProfile::Scenario1 => "Scenario 1",
+            AssumptionProfile::Scenario2 => "Scenario 2",
+            AssumptionProfile::Scenario3 => "Scenario 3",
+        }
+    }
+}
+
+// Here we define the possible optimizers.
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+enum Optimizer {
+    #[serde(rename = "highs")]
+    Highs,
+    #[serde(rename = "cbc")]
+    Cbc,
+    #[serde(rename = "gurobi")]
+    Gurobi,
+}
+
+impl Optimizer {
+    fn to_user_friendly_label(&self) -> &str {
+        match self {
+            Optimizer::Highs => "Highs",
+            Optimizer::Cbc => "CBC",
+            Optimizer::Gurobi => "Gurobi",
+        }
+    }
+}
+
+// Here we define the possible open fields.
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+enum IncludedOrExcluded {
+    #[serde(rename = "included")]
+    Included,
+    #[serde(rename = "excluded")]
+    Excluded,
+}
+
+impl IncludedOrExcluded {
+    fn to_user_friendly_label(&self) -> &str {
+        match self {
+            IncludedOrExcluded::Included => "Included",
+            IncludedOrExcluded::Excluded => "Excluded",
         }
     }
 }
@@ -151,11 +267,6 @@ fn save_json_data(data: &JsonData) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() {
-    let app = MyApp::default();
-    // let options = eframe::NativeOptions {
-    //     initial_window_size: Some(egui::vec2(400.0, 200.0)),
-    //     ..Default::default()
-    // };
     let options = eframe::NativeOptions::default();
-    eframe::run_native(APP_NAME, options, Box::new(|cc| Box::new(MyApp::new(cc))));
+    let _result = eframe::run_native(APP_NAME, options, Box::new(|cc| Box::new(MyApp::new(cc))));
 }
