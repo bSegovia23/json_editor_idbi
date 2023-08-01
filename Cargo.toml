@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-egui = "0.12"
-egui_extras = { version = "0.22", features = ["chrono"] }
-eframe = "0.12"
-chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
+egui = "*"
+egui_extras = { version = "*", default-features = false, features = ["chrono"] }
+eframe = "*"
+chrono = { version = "*", features = ["serde"] }
