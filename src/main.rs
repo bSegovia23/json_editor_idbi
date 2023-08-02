@@ -1,7 +1,7 @@
+use std::collections::BTreeMap;
 use std::{fs::File, ops::RangeInclusive};
 use std::io::prelude::*;
 use egui::Ui;
-use egui::emath::Numeric;
 use serde::{Deserialize, Serialize};
 use eframe::egui;
 use egui_extras;
@@ -61,7 +61,6 @@ fn render_drag_value_with_label<T>(
     label: &str,
     value: &mut T,
     range: RangeInclusive<T>
-    // Add other optional parameters as needed
 )
 where
     T: Clone + eframe::emath::Numeric,
@@ -70,6 +69,18 @@ where
         ui.label(label);
         ui.add(egui::DragValue::new(value).clamp_range(range));
     });
+}
+
+// Generic function to render a DragView without a label or new line.
+fn render_drag_value_inline<T>(
+    ui: &mut Ui,
+    value: &mut T,
+    range: RangeInclusive<T>
+)
+where
+    T: Clone + eframe::emath::Numeric,
+{
+    ui.add(egui::DragValue::new(value).clamp_range(range));
 }
 
 // Generic function to render a date picker with a label.
@@ -117,6 +128,7 @@ fn render_bool_options_with_label(
             ui.radio_value(current_value, false, "False");
         });
 }
+
 
 // Here we define our app's UI.
 impl eframe::App for MyApp {
@@ -243,6 +255,34 @@ impl eframe::App for MyApp {
                 // curve data
                 ui.heading("Rate Shock Size");
 
+                const MIN_LEN: usize = 1;
+                const MAX_LEN: usize = 10;
+
+                for (curve_name, curve_values) in self.json_data.delta_nii_shocks_bps.iter_mut() {
+                    ui.horizontal(|ui| {
+                        ui.label(curve_name);
+            
+                        // Draw DragValue elements for each entry in the curve array
+                        for value in curve_values.iter_mut() {
+                            ui.add(egui::widgets::DragValue::new(value));
+                        }
+
+                        // Add a button to add a new entry to the curve array
+                        if curve_values.len() < MAX_LEN {
+                            if ui.button("+").clicked() {
+                                curve_values.push(100); // You can set the default value here
+                            }
+                        }
+            
+                        // Add a button to remove the last entry from the curve array
+                        if curve_values.len() > MIN_LEN {
+                            if ui.button("-").clicked() {
+                                curve_values.pop();
+                            }
+                        }
+                    });
+                }
+
                 // ui.horizontal(|ui| {
                 //     ui.label("USD Fed Funds:");
                 //     ui.add(egui::DragValue::new(&mut self.json_data.CURVE_USD_FED_FUNDS).speed(0.5).clamp_range(LCR_BOUND_MIN..=LCR_BOUND_MAX));
@@ -286,29 +326,14 @@ struct JsonData {
     must_borrow_benchmark_in_first_year: bool,
     // interest rate risk
     delta_nii_horizon_months: u32,
-    // curve shocks
-    CURVE_USD_FED_FUNDS: Vec<i32>,
-    CURVE_TTD_LIBOR6M: Vec<i32>,
-    CURVE_USD_OVERNIGHTSOFR: Vec<i32>,
-    CURVE_USD_LIBOR1M: Vec<i32>,
-    CURVE_USD_LIBOR3M: Vec<i32>,
-    CURVE_USD_LIBOR6M: Vec<i32>,
-    CURVE_USD_LIBOR12M: Vec<i32>,
-    CURVE_MXN_TIIE28D: Vec<i32>,
-    CURVE_BRL_CDI: Vec<i32>,
-    CURVE_COP_OVIBR: Vec<i32>,
-    CURVE_USD_OIS: Vec<i32>,
-    CURVE_TTD_GORTT: Vec<i32>,
-    CURVE_PEN_V_USD6M: Vec<i32>,
-    CURVE_AUD_OIS: Vec<i32>,
-    CURVE_CLP_V_CAMARA: Vec<i32>,
-    CURVE_EUR_OIS: Vec<i32>,
+    delta_nii_shocks_bps: std::collections::BTreeMap<String, Vec<i32>>,
     // Add more fields as needed
 }
 
 // Here we define the "default" JSON data.
 impl Default for JsonData {
     fn default() -> Self {
+        let default_array: Vec<i32> = vec![100];
         JsonData {
             // model
             n_stages: 2,
@@ -332,22 +357,24 @@ impl Default for JsonData {
             // interest rate risk
             delta_nii_horizon_months: 12,
             // curve data
-            CURVE_USD_FED_FUNDS: vec![100],
-            CURVE_TTD_LIBOR6M: vec![100],
-            CURVE_USD_OVERNIGHTSOFR: vec![100],
-            CURVE_USD_LIBOR1M: vec![100],
-            CURVE_USD_LIBOR3M: vec![100],
-            CURVE_USD_LIBOR6M: vec![100],
-            CURVE_USD_LIBOR12M: vec![100],
-            CURVE_MXN_TIIE28D: vec![100],
-            CURVE_BRL_CDI: vec![100],
-            CURVE_COP_OVIBR: vec![100],
-            CURVE_USD_OIS: vec![100],
-            CURVE_TTD_GORTT: vec![100],
-            CURVE_PEN_V_USD6M: vec![100],
-            CURVE_AUD_OIS: vec![100],
-            CURVE_CLP_V_CAMARA: vec![100],
-            CURVE_EUR_OIS: vec![100],
+            delta_nii_shocks_bps: std::collections::BTreeMap::from([
+                ("CURVE_USD_FED_FUNDS".to_string(), default_array.clone()),
+                ("CURVE_TTD_LIBOR6M".to_string(), default_array.clone()),
+                ("CURVE_USD_OVERNIGHTSOFR".to_string(), default_array.clone()),
+                ("CURVE_USD_LIBOR1M".to_string(), default_array.clone()),
+                ("CURVE_USD_LIBOR3M".to_string(), default_array.clone()),
+                ("CURVE_USD_LIBOR6M".to_string(), default_array.clone()),
+                ("CURVE_USD_LIBOR12M".to_string(), default_array.clone()),
+                ("CURVE_MXN_TIIE28D".to_string(), default_array.clone()),
+                ("CURVE_BRL_CDI".to_string(), default_array.clone()),
+                ("CURVE_COP_OVIBR".to_string(), default_array.clone()),
+                ("CURVE_USD_OIS".to_string(), default_array.clone()),
+                ("CURVE_TTD_GORTT".to_string(), default_array.clone()),
+                ("CURVE_PEN_V_USD6M".to_string(), default_array.clone()),
+                ("CURVE_AUD_OIS".to_string(), default_array.clone()),
+                ("CURVE_CLP_V_CAMARA".to_string(), default_array.clone()),
+                ("CURVE_EUR_OIS".to_string(), default_array.clone()),
+            ]),
         }
     }
 }
