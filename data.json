@@ -1,20 +1,68 @@
 {
-  "n_stages": 6,
-  "step_size_months": 4,
-  "base_date": "2020-01-01",
-  "start_date": "2025-01-14",
+  "n_stages": 2,
+  "step_size_months": 6,
+  "base_date": "2020-01-08",
+  "start_date": "2025-01-15",
   "reports_folder": "Reports",
   "environment": "PRODUCTION",
   "assumption_profile": "SCENARIO 2",
   "optimizer": "highs",
-  "fwd_start_swap": "included",
+  "fwd_start_swap": "excluded",
   "lcr_lower_limit": 100.0,
   "lcr_upper_limit": 100.0,
-  "lcr_average_dra_pd": 1.63,
+  "lcr_average_dra_pd": 7.0,
   "MXN_treasury_liquidity_floor": 1000000,
-  "COP_treasury_liquidity_floor": 1500000,
-  "BRL_treasury_liquidity_floor": 10000000,
+  "COP_treasury_liquidity_floor": 1499998,
+  "BRL_treasury_liquidity_floor": 10000006,
   "require_annual_benchmark": false,
   "must_borrow_benchmark_in_first_year": false,
-  "delta_nii_horizon_months": 12
+  "delta_nii_horizon_months": 12,
+  "CURVE_USD_FED_FUNDS": [
+    100
+  ],
+  "CURVE_TTD_LIBOR6M": [
+    100
+  ],
+  "CURVE_USD_OVERNIGHTSOFR": [
+    100
+  ],
+  "CURVE_USD_LIBOR1M": [
+    100
+  ],
+  "CURVE_USD_LIBOR3M": [
+    100
+  ],
+  "CURVE_USD_LIBOR6M": [
+    100
+  ],
+  "CURVE_USD_LIBOR12M": [
+    100
+  ],
+  "CURVE_MXN_TIIE28D": [
+    100
+  ],
+  "CURVE_BRL_CDI": [
+    100
+  ],
+  "CURVE_COP_OVIBR": [
+    100
+  ],
+  "CURVE_USD_OIS": [
+    100
+  ],
+  "CURVE_TTD_GORTT": [
+    100
+  ],
+  "CURVE_PEN_V_USD6M": [
+    100
+  ],
+  "CURVE_AUD_OIS": [
+    100
+  ],
+  "CURVE_CLP_V_CAMARA": [
+    100
+  ],
+  "CURVE_EUR_OIS": [
+    100
+  ]
 }

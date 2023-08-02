@@ -1,5 +1,7 @@
-use std::fs::File;
+use std::{fs::File, ops::RangeInclusive};
 use std::io::prelude::*;
+use egui::Ui;
+use egui::emath::Numeric;
 use serde::{Deserialize, Serialize};
 use eframe::egui;
 use egui_extras;
@@ -37,6 +39,85 @@ impl Default for MyApp {
     }
 }
 
+// Generic function to render a slider with a label.
+fn render_slider_with_label<T>(
+    ui: &mut Ui,
+    label: &str,
+    value: &mut T,
+    range: RangeInclusive<T>
+)
+where
+    T: Clone + eframe::emath::Numeric,
+{
+    ui.horizontal(|ui| {
+        ui.label(label);
+        ui.add(egui::widgets::Slider::new(value, range));
+    });
+}
+
+// Generic function to render a DragView with a label.
+fn render_drag_value_with_label<T>(
+    ui: &mut Ui,
+    label: &str,
+    value: &mut T,
+    range: RangeInclusive<T>
+    // Add other optional parameters as needed
+)
+where
+    T: Clone + eframe::emath::Numeric,
+{
+    ui.horizontal(|ui| {
+        ui.label(label);
+        ui.add(egui::DragValue::new(value).clamp_range(range));
+    });
+}
+
+// Generic function to render a date picker with a label.
+fn render_date_picker_with_label(ui: &mut Ui, label: &str, selection: &mut NaiveDate, id: &str) {
+    ui.horizontal(|ui| {
+        ui.label(label);
+        ui.add(egui_extras::DatePickerButton::new(selection).id_source(id));
+    });
+}
+
+// Generic function to render a single-line text editor with a label.
+fn render_text_edit_with_label(ui: &mut Ui, label: &str, text: &mut String) {
+    ui.horizontal(|ui| {
+        ui.label(label);
+        ui.add(egui::TextEdit::singleline(text));
+    });
+}
+
+// Generic function to render enum options as radio buttons with a label.
+fn render_enum_options_with_label<T>(
+    ui: &mut Ui,
+    ui_label: &str,
+    current_value: &mut T,
+    options: &[T],
+    to_user_friendly_label: impl Fn(&T) -> &str,
+) where
+    T: PartialEq + Copy,
+{
+    ui.horizontal(|ui| {
+        ui.label(ui_label);
+        for option in options {
+            ui.radio_value(current_value, *option, to_user_friendly_label(option));
+        }
+    });
+}
+
+// Generic function to render a true/false option.
+fn render_bool_options_with_label(
+    ui: &mut Ui,
+    ui_label: &str,
+    current_value: &mut bool) {
+        ui.horizontal(|ui| {
+            ui.label(ui_label);
+            ui.radio_value(current_value, true, "True");
+            ui.radio_value(current_value, false, "False");
+        });
+}
+
 // Here we define our app's UI.
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -44,88 +125,47 @@ impl eframe::App for MyApp {
             egui::ScrollArea::vertical().max_width(f32::INFINITY).show(ui, |ui| {
                 // Create UI elements to edit our JSON data
                 ui.heading("Model");
-                ui.horizontal(|ui| {
-                    ui.label("Number of Stages:");
-                    ui.add(egui::widgets::Slider::new(&mut self.json_data.n_stages, 1..=4));
-                });
 
-                ui.horizontal(|ui| {
-                    ui.label("Step Size in Months:");
-                    ui.add(egui::widgets::Slider::new(&mut self.json_data.step_size_months, 1..=6));
-                });
-
-                ui.horizontal(|ui| {
-                    ui.label("Base Date:");
-                    ui.add(egui_extras::DatePickerButton::new(&mut self.json_data.base_date).id_source("base_date_picker"));
-                });
-
-                ui.horizontal(|ui| {
-                    ui.label("Start Date:");
-                    ui.add(egui_extras::DatePickerButton::new(&mut self.json_data.start_date).id_source("start_date_picker"));
-                });
-
-                ui.horizontal(|ui| {
-                    ui.label("Reports Folder:");
-                    ui.add(egui::TextEdit::singleline(&mut self.json_data.reports_folder));
-                });
-                
-                let environment_options = [
-                    Environment::Production,
-                    Environment::Development,
-                    Environment::Testing,
-                ];
-
-                ui.horizontal(|ui| {
-                    ui.label("Environment:");
-                    for option in environment_options {
-                        ui.radio_value(&mut self.json_data.environment, option, option.to_user_friendly_label());
-                    }
-                });
-
-                let assumption_profile_options = [
-                    AssumptionProfile::BaseCase,
-                    AssumptionProfile::Scenario1,
-                    AssumptionProfile::Scenario2,
-                    AssumptionProfile::Scenario3,
-                ];
-
-                ui.horizontal(|ui| {
-                    ui.label("Assumption Profile:");
-                    for option in assumption_profile_options {
-                        ui.radio_value(&mut self.json_data.assumption_profile, option, option.to_user_friendly_label());
-                    }
-                });
-
-                let optimizer_options = [
-                    Optimizer::Highs,
-                    Optimizer::Cbc,
-                    Optimizer::Gurobi,
-                ];
-
-                ui.horizontal(|ui| {
-                    ui.label("Optimizer:");
-                    for option in optimizer_options {
-                        ui.radio_value(&mut self.json_data.optimizer, option, option.to_user_friendly_label());
-                    }
-                });
-
-                let open_field_options = [
-                    IncludedOrExcluded::Included,
-                    IncludedOrExcluded::Excluded,
-                ];
-
-                ui.horizontal(|ui| {
-                    ui.label("Forward Start Swap:");
-                    for option in open_field_options {
-                        ui.radio_value(&mut self.json_data.fwd_start_swap, option, option.to_user_friendly_label());
-                    }
-                });
+                render_slider_with_label(ui, "Number of Stages", &mut self.json_data.n_stages, 1..=4);
+                render_slider_with_label(ui, "Step Size in Months", &mut self.json_data.step_size_months, 1..=6);
+                render_date_picker_with_label(ui, "Base Date", &mut self.json_data.base_date, "base_date_picker");
+                render_date_picker_with_label(ui, "Start Date", &mut self.json_data.start_date, "start_date_picker");
+                render_text_edit_with_label(ui, "Reports Folder", &mut self.json_data.reports_folder);
+                render_enum_options_with_label(
+                    ui,
+                    "Environment",
+                    &mut self.json_data.environment,
+                    &[Environment::Production, Environment::Development, Environment::Testing],
+                    |option| option.to_user_friendly_label()
+                );
+                render_enum_options_with_label(
+                    ui,
+                    "Assumption Profile",
+                    &mut self.json_data.assumption_profile,
+                    &[AssumptionProfile::BaseCase, AssumptionProfile::Scenario1, AssumptionProfile::Scenario2, AssumptionProfile::Scenario3],
+                    |option| option.to_user_friendly_label()
+                );
+                render_enum_options_with_label(
+                    ui,
+                    "Optimizer",
+                    &mut self.json_data.optimizer,
+                    &[Optimizer::Highs, Optimizer::Cbc, Optimizer::Gurobi],
+                    |option| option.to_user_friendly_label()
+                );
+                render_enum_options_with_label(
+                    ui,
+                    "Forward Start Swap",
+                    &mut self.json_data.fwd_start_swap,
+                    &[IncludedOrExcluded::Included, IncludedOrExcluded::Excluded],
+                    |option| option.to_user_friendly_label()
+                );
 
                 ui.heading("Liquidity Risk");
 
                 const LCR_BOUND_MIN: u32 = 100;
                 const LCR_BOUND_MAX: u32 = 300;
 
+                // special logic for lower/upper limit dragvalues because they affect each other
                 ui.horizontal(|ui| {
                     ui.label("LCR Lower Limit:");
                     let response = ui.add(egui::DragValue::new(&mut self.json_data.lcr_lower_limit).speed(0.5).clamp_range(LCR_BOUND_MIN..=LCR_BOUND_MAX));
@@ -146,52 +186,67 @@ impl eframe::App for MyApp {
                     }
                 });
 
-                ui.horizontal(|ui| {
-                    ui.label("USD Treasury Liquidity as % of Total Assets:");
-                    ui.add(egui::DragValue::new(&mut self.json_data.lcr_average_dra_pd).speed(0.01).clamp_range(0.0..=50.0));
-                });
+                render_drag_value_with_label(
+                    ui,
+                    "USD Treasury Liquidity as % of Total Assets",
+                    &mut self.json_data.lcr_average_dra_pd,
+                    0.0..=50.0
+                );
 
                 const LIQUIDITY_FLOOR_MIN: u32 = 1000000; // at least set this as 0
                 const LIQUIDITY_FLOOR_MAX: u32 = 100000000;
 
-                ui.horizontal(|ui| {
-                    ui.label("MXN Treasury Liquidity Floor (USD):");
-                    ui.add(egui::DragValue::new(&mut self.json_data.MXN_treasury_liquidity_floor).clamp_range(LIQUIDITY_FLOOR_MIN..=LIQUIDITY_FLOOR_MAX));
-                });
+                render_drag_value_with_label(
+                    ui,
+                    "MXN Treasury Liquidity Floor (USD)",
+                    &mut self.json_data.MXN_treasury_liquidity_floor,
+                    LIQUIDITY_FLOOR_MIN..=LIQUIDITY_FLOOR_MAX
+                );
 
-                ui.horizontal(|ui| {
-                    ui.label("COP Treasury Liquidity Floor (USD):");
-                    ui.add(egui::DragValue::new(&mut self.json_data.COP_treasury_liquidity_floor).clamp_range(LIQUIDITY_FLOOR_MIN..=LIQUIDITY_FLOOR_MAX));
-                });
+                render_drag_value_with_label(
+                    ui,
+                    "COP Treasury Liquidity Floor (USD)",
+                    &mut self.json_data.COP_treasury_liquidity_floor,
+                    LIQUIDITY_FLOOR_MIN..=LIQUIDITY_FLOOR_MAX
+                );
 
-                ui.horizontal(|ui| {
-                    ui.label("BRL Treasury Liquidity Floor (USD):");
-                    ui.add(egui::DragValue::new(&mut self.json_data.BRL_treasury_liquidity_floor).clamp_range(LIQUIDITY_FLOOR_MIN..=LIQUIDITY_FLOOR_MAX));
-                });
-
-                ui.horizontal(|ui| {
-                    ui.label("BRL Treasury Liquidity Floor (USD):");
-                    ui.add(egui::DragValue::new(&mut self.json_data.BRL_treasury_liquidity_floor).clamp_range(LIQUIDITY_FLOOR_MIN..=LIQUIDITY_FLOOR_MAX));
-                });
+                render_drag_value_with_label(
+                    ui,
+                    "BRL Treasury Liquidity Floor (USD)",
+                    &mut self.json_data.BRL_treasury_liquidity_floor,
+                    LIQUIDITY_FLOOR_MIN..=LIQUIDITY_FLOOR_MAX
+                );
                 
                 // funding gap
-                ui.horizontal(|ui| {
-                    ui.label("Require Annual Benchmark:");
-                    ui.radio_value(&mut self.json_data.require_annual_benchmark, true, "True");
-                    ui.radio_value(&mut self.json_data.require_annual_benchmark, false, "False");
-                });
-                
-                ui.horizontal(|ui| {
-                    ui.label("Must Borrow Benchmark in First Year:");
-                    ui.radio_value(&mut self.json_data.must_borrow_benchmark_in_first_year, true, "True");
-                    ui.radio_value(&mut self.json_data.must_borrow_benchmark_in_first_year, false, "False");
-                });
+                ui.heading("Funding Gap");
+
+                render_bool_options_with_label(
+                    ui,
+                    "Require Annual Benchmark",
+                    &mut self.json_data.require_annual_benchmark
+                );
+
+                render_bool_options_with_label(
+                    ui,
+                    "Must Borrow Benchmark in First Year",
+                    &mut self.json_data.must_borrow_benchmark_in_first_year
+                );
 
                 // interest rate risk
+                ui.heading("Interest Rate Risk");
+
                 ui.horizontal(|ui| {
                     ui.label("NII Horizon in Months:");
                     ui.add(egui::widgets::Slider::new(&mut self.json_data.delta_nii_horizon_months, 1..=36));
                 });
+
+                // curve data
+                ui.heading("Rate Shock Size");
+
+                // ui.horizontal(|ui| {
+                //     ui.label("USD Fed Funds:");
+                //     ui.add(egui::DragValue::new(&mut self.json_data.CURVE_USD_FED_FUNDS).speed(0.5).clamp_range(LCR_BOUND_MIN..=LCR_BOUND_MAX));
+                // });
 
                 // Add more UI elements as needed for other fields
 
@@ -231,7 +286,23 @@ struct JsonData {
     must_borrow_benchmark_in_first_year: bool,
     // interest rate risk
     delta_nii_horizon_months: u32,
-
+    // curve shocks
+    CURVE_USD_FED_FUNDS: Vec<i32>,
+    CURVE_TTD_LIBOR6M: Vec<i32>,
+    CURVE_USD_OVERNIGHTSOFR: Vec<i32>,
+    CURVE_USD_LIBOR1M: Vec<i32>,
+    CURVE_USD_LIBOR3M: Vec<i32>,
+    CURVE_USD_LIBOR6M: Vec<i32>,
+    CURVE_USD_LIBOR12M: Vec<i32>,
+    CURVE_MXN_TIIE28D: Vec<i32>,
+    CURVE_BRL_CDI: Vec<i32>,
+    CURVE_COP_OVIBR: Vec<i32>,
+    CURVE_USD_OIS: Vec<i32>,
+    CURVE_TTD_GORTT: Vec<i32>,
+    CURVE_PEN_V_USD6M: Vec<i32>,
+    CURVE_AUD_OIS: Vec<i32>,
+    CURVE_CLP_V_CAMARA: Vec<i32>,
+    CURVE_EUR_OIS: Vec<i32>,
     // Add more fields as needed
 }
 
@@ -260,6 +331,23 @@ impl Default for JsonData {
             must_borrow_benchmark_in_first_year: false,
             // interest rate risk
             delta_nii_horizon_months: 12,
+            // curve data
+            CURVE_USD_FED_FUNDS: vec![100],
+            CURVE_TTD_LIBOR6M: vec![100],
+            CURVE_USD_OVERNIGHTSOFR: vec![100],
+            CURVE_USD_LIBOR1M: vec![100],
+            CURVE_USD_LIBOR3M: vec![100],
+            CURVE_USD_LIBOR6M: vec![100],
+            CURVE_USD_LIBOR12M: vec![100],
+            CURVE_MXN_TIIE28D: vec![100],
+            CURVE_BRL_CDI: vec![100],
+            CURVE_COP_OVIBR: vec![100],
+            CURVE_USD_OIS: vec![100],
+            CURVE_TTD_GORTT: vec![100],
+            CURVE_PEN_V_USD6M: vec![100],
+            CURVE_AUD_OIS: vec![100],
+            CURVE_CLP_V_CAMARA: vec![100],
+            CURVE_EUR_OIS: vec![100],
         }
     }
 }
