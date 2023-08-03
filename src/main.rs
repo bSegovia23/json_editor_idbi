@@ -1,17 +1,18 @@
-use std::collections::BTreeMap;
 use std::{fs::File, ops::RangeInclusive};
+use std::process::Command;
 use std::io::prelude::*;
-use egui::Ui;
+use egui::{Ui, Vec2};
 use serde::{Deserialize, Serialize};
 use eframe::egui;
-use egui_extras;
 use chrono::NaiveDate;
 
-const APP_NAME: &str = "JSON Editor";
+const APP_NAME: &str = "ALM Dynamic Model";
+const NUM_YEARS_MODELED: usize = 10; // for the risk curve
 
 // Here we define what our app keeps in its storage.
 struct MyApp {
     json_data: JsonData,
+    changed: bool,
 }
 
 // Here we define what a "new" app looks like.
@@ -35,7 +36,21 @@ impl Default for MyApp {
             }
         };
 
-        MyApp { json_data } 
+        let changed = false;
+
+        MyApp { json_data, changed } 
+    }
+}
+
+// Generic function to render a widget.
+fn render_widget_with_change_tracking(
+    app: &mut MyApp,
+    ui: &mut Ui,
+    widget: impl egui::Widget,
+){
+    let response = ui.add(widget);
+    if response.changed(){
+        app.changed = true;
     }
 }
 
@@ -112,7 +127,7 @@ fn render_enum_options_with_label<T>(
     ui.horizontal(|ui| {
         ui.label(ui_label);
         for option in options {
-            ui.radio_value(current_value, *option, to_user_friendly_label(option));
+            ui.selectable_value(current_value, *option, to_user_friendly_label(option));
         }
     });
 }
@@ -122,11 +137,22 @@ fn render_bool_options_with_label(
     ui: &mut Ui,
     ui_label: &str,
     current_value: &mut bool) {
-        ui.horizontal(|ui| {
-            ui.label(ui_label);
-            ui.radio_value(current_value, true, "True");
-            ui.radio_value(current_value, false, "False");
-        });
+        // ui.horizontal(|ui| {
+        //     ui.label(ui_label);
+        //     ui.radio_value(current_value, true, "True");
+        //     ui.radio_value(current_value, false, "False");
+        // });
+        render_enum_options_with_label(
+            ui,
+            ui_label,
+            current_value,
+            &[true, false],
+            |b| {
+                match b {
+                    true => "True",
+                    false => "False"
+                }
+            })
 }
 
 
@@ -134,10 +160,9 @@ fn render_bool_options_with_label(
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            egui::ScrollArea::vertical().max_width(f32::INFINITY).show(ui, |ui| {
+            egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
                 // Create UI elements to edit our JSON data
-                ui.heading("Model");
-
+                ui.heading("Run Setup");
                 render_slider_with_label(ui, "Number of Stages", &mut self.json_data.n_stages, 1..=4);
                 render_slider_with_label(ui, "Step Size in Months", &mut self.json_data.step_size_months, 1..=6);
                 render_date_picker_with_label(ui, "Base Date", &mut self.json_data.base_date, "base_date_picker");
@@ -172,7 +197,9 @@ impl eframe::App for MyApp {
                     |option| option.to_user_friendly_label()
                 );
 
-                ui.heading("Liquidity Risk");
+                ui.add_space(10.0); // Add some spacing between sections
+
+                ui.heading("Liquidity Parameters");
 
                 const LCR_BOUND_MIN: u32 = 100;
                 const LCR_BOUND_MAX: u32 = 300;
@@ -229,8 +256,10 @@ impl eframe::App for MyApp {
                     LIQUIDITY_FLOOR_MIN..=LIQUIDITY_FLOOR_MAX
                 );
                 
+                ui.add_space(10.0); // Add some spacing between sections
+
                 // funding gap
-                ui.heading("Funding Gap");
+                ui.heading("Funding Gap Parameters");
 
                 render_bool_options_with_label(
                     ui,
@@ -244,59 +273,45 @@ impl eframe::App for MyApp {
                     &mut self.json_data.must_borrow_benchmark_in_first_year
                 );
 
+                ui.add_space(10.0); // Add some spacing between sections
+
                 // interest rate risk
-                ui.heading("Interest Rate Risk");
+                ui.heading("Interest Rate Risk Parameters");
 
                 ui.horizontal(|ui| {
                     ui.label("NII Horizon in Months:");
                     ui.add(egui::widgets::Slider::new(&mut self.json_data.delta_nii_horizon_months, 1..=36));
                 });
 
-                // curve data
-                ui.heading("Rate Shock Size");
-
-                const MIN_LEN: usize = 1;
-                const MAX_LEN: usize = 10;
-
-                for (curve_name, curve_values) in self.json_data.delta_nii_shocks_bps.iter_mut() {
-                    ui.horizontal(|ui| {
-                        ui.label(curve_name);
-            
-                        // Draw DragValue elements for each entry in the curve array
-                        for value in curve_values.iter_mut() {
-                            ui.add(egui::widgets::DragValue::new(value));
+                egui::Grid::new("curves_grid")
+                    .striped(true)
+                    .num_columns(NUM_YEARS_MODELED+1)
+                    .show(ui, |ui| {
+                        ui.label("");
+                        for year in 1..=NUM_YEARS_MODELED {
+                            ui.label(format!("Y{}", year));
                         }
-
-                        // Add a button to add a new entry to the curve array
-                        if curve_values.len() < MAX_LEN {
-                            if ui.button("+").clicked() {
-                                curve_values.push(100); // You can set the default value here
+                        ui.end_row();
+                        for (curve_id, curve_array) in self.json_data.delta_nii_shocks_bps.iter_mut() {
+                            ui.label(curve_id);
+                            for value in curve_array {
+                                render_drag_value_inline(ui, value, -500..=500)
                             }
-                        }
-            
-                        // Add a button to remove the last entry from the curve array
-                        if curve_values.len() > MIN_LEN {
-                            if ui.button("-").clicked() {
-                                curve_values.pop();
-                            }
+                            ui.end_row();
                         }
                     });
-                }
-
-                // ui.horizontal(|ui| {
-                //     ui.label("USD Fed Funds:");
-                //     ui.add(egui::DragValue::new(&mut self.json_data.CURVE_USD_FED_FUNDS).speed(0.5).clamp_range(LCR_BOUND_MIN..=LCR_BOUND_MAX));
-                // });
 
                 // Add more UI elements as needed for other fields
 
-                if ui.button("Save").clicked() {
-                    // Save the JSON data when the "Save" button is clicked
-                    match save_json_data(&self.json_data) {
-                        Ok(_) => println!("Data saved successfully!"),
-                        Err(e) => println!("Error saving data: {}", e),
+                ui.horizontal(|ui| {
+                    if ui.button("Save").clicked() {
+                        // Save the JSON data when the "Save" button is clicked
+                        match save_json_data(&self.json_data) {
+                            Ok(_) => println!("Data saved successfully!"),
+                            Err(e) => println!("Error saving data: {}", e),
+                        }
                     }
-                }
+                });
             });
         });
     }
@@ -326,14 +341,14 @@ struct JsonData {
     must_borrow_benchmark_in_first_year: bool,
     // interest rate risk
     delta_nii_horizon_months: u32,
-    delta_nii_shocks_bps: std::collections::BTreeMap<String, Vec<i32>>,
+    delta_nii_shocks_bps: std::collections::BTreeMap<String, [i32; NUM_YEARS_MODELED]>,
     // Add more fields as needed
 }
 
 // Here we define the "default" JSON data.
 impl Default for JsonData {
     fn default() -> Self {
-        let default_array: Vec<i32> = vec![100];
+        let default_array: [i32; NUM_YEARS_MODELED] = [100; NUM_YEARS_MODELED];
         JsonData {
             // model
             n_stages: 2,
@@ -488,6 +503,7 @@ fn save_json_data(data: &JsonData) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() {
-    let options = eframe::NativeOptions::default();
+    // let options = eframe::NativeOptions::default();
+    let mut options = eframe::NativeOptions::default();
     let _result = eframe::run_native(APP_NAME, options, Box::new(|cc| Box::new(MyApp::new(cc))));
 }
