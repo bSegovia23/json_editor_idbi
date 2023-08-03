@@ -1,7 +1,6 @@
-use std::{fs::File, ops::RangeInclusive};
-use std::process::Command;
+use std::{fs::File, ops::RangeInclusive, path::Path};
 use std::io::prelude::*;
-use egui::{Ui, Vec2};
+use egui::{Ui, Vec2, ColorImage};
 use serde::{Deserialize, Serialize};
 use eframe::egui;
 use chrono::NaiveDate;
@@ -13,6 +12,7 @@ const NUM_YEARS_MODELED: usize = 10; // for the risk curve
 struct MyApp {
     json_data: JsonData,
     changed: bool,
+    logo: Option<egui::TextureHandle>,
 }
 
 // Here we define what a "new" app looks like.
@@ -20,7 +20,19 @@ impl MyApp {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // If you want to customize GUI fonts and visuals, do it here.
         // cc.egui_ctx.set_fonts and cc.egui_ctx.set_visuals
-        Self::default()
+        let mut app = Self::default();
+        let image = load_image_from_path(Path::new("res/logo.png"));
+        match image {
+            Ok(color_image) => {
+                let img_options = Default::default();
+                let logo = cc.egui_ctx.load_texture("logo", color_image, img_options);
+                app.logo = Some(logo);
+            }
+            Err(e) => {
+                println!("Error parsing logo image: {}", e);
+            }
+        }
+        app
     }
 }
 
@@ -38,8 +50,19 @@ impl Default for MyApp {
 
         let changed = false;
 
-        MyApp { json_data, changed } 
+        MyApp { json_data, changed, logo: None } 
     }
+}
+
+fn load_image_from_path(path: &Path) -> Result<egui::ColorImage, image::ImageError> {
+    let image = image::io::Reader::open(path)?.decode()?;
+    let size = [image.width() as _, image.height() as _];
+    let image_buffer = image.to_rgba8();
+    let pixels = image_buffer.as_flat_samples();
+    Ok(egui::ColorImage::from_rgba_unmultiplied(
+        size,
+        pixels.as_slice(),
+    ))
 }
 
 // Generic function to render a widget.
@@ -159,8 +182,19 @@ fn render_bool_options_with_label(
 // Here we define our app's UI.
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // egui::SidePanel::right("logo-panel").show(ctx, |ui| {
+        // });
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
+                // create logo
+                match &mut self.logo {
+                    Some(logo) => {
+                        let size = logo.size_vec2() * 0.1;
+                        ui.image(logo, size)
+                    },
+                    None => ui.label("Logo not available"),
+                };
+                ui.heading("ALM Dynamic Model");
                 // Create UI elements to edit our JSON data
                 ui.heading("Run Setup");
                 render_slider_with_label(ui, "Number of Stages", &mut self.json_data.n_stages, 1..=4);
