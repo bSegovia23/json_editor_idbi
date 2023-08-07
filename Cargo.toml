@@ -13,3 +13,4 @@ egui_extras = { version = "*", default-features = false, features = ["chrono"] }
 eframe = "*"
 chrono = { version = "*", features = ["serde"] }
 image = "0.24.6"
+strum_macros = "0.25.2"

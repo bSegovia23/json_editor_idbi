@@ -1,11 +1,13 @@
 use std::{fs::File, path::Path};
 use std::io::prelude::*;
 use egui::{Grid, TextEdit};
-use egui::widgets::{Slider, DragValue};
+use egui::widgets::{Slider, DragValue, Button};
 use egui_extras::DatePickerButton;
 use serde::{Deserialize, Serialize};
 use eframe::egui;
 use chrono::NaiveDate;
+use std::string::ToString;
+use strum_macros::Display;
 
 const APP_NAME: &str = "ALM Dynamic Model";
 const NUM_YEARS_MODELED: usize = 10; // for the risk curve
@@ -80,16 +82,20 @@ impl eframe::App for MyApp {
                 None => ui.label("Logo not available"),
             };
             ui.horizontal(|ui| {
-                if ui.add(egui::widgets::Button::new("Save").min_size(egui::vec2(122.00,10.0))).clicked() {
-                    // Save the JSON data when the "Save" button is clicked
-                    match save_json_data(&self.json_data) {
-                        Ok(_) => println!("Data saved successfully!"),
-                        Err(e) => eprintln!("Error saving data: {}", e),
-                    }
-                }
-                if ui.add(egui::widgets::Button::new("Run").min_size(egui::vec2(122.00,10.0))).clicked() {
+                if ui.add(Button::new("Run").min_size(egui::vec2(122.00,10.0))).clicked() {
                     // TODO
                     eprintln!("Model not found");
+                }
+                let save_possible = self.changed;
+                if ui.add_enabled(save_possible, Button::new("Save").min_size(egui::vec2(122.00,10.0))).clicked() {
+                    // Save the JSON data when the "Save" button is clicked
+                    match save_json_data(&self.json_data) {
+                        Ok(_) => {
+                            println!("Data saved successfully!");
+                            self.changed = false;
+                        },
+                        Err(e) => eprintln!("Error saving data: {}", e),
+                    }
                 }
             });
         });
@@ -102,41 +108,50 @@ impl eframe::App for MyApp {
                     .num_columns(2)
                     .show(ui, |ui| {
                     ui.label("Number of Stages");
-                    self.changed = ui.add(Slider::new(&mut self.json_data.n_stages, 1..=4)).changed();
+                    self.changed |= ui.add(Slider::new(&mut self.json_data.n_stages, 1..=4)).changed();
                     ui.end_row();
+
                     ui.label("Step Size in Months");
                     self.changed |= ui.add(Slider::new(&mut self.json_data.step_size_months, 1..=6)).changed();
                     ui.end_row();
+
                     ui.label("Base Date");
                     self.changed |= ui.add(DatePickerButton::new(&mut self.json_data.base_date).id_source("base_date_picker")).changed();
                     ui.end_row();
+
                     ui.label("Start Date");
                     self.changed |= ui.add(DatePickerButton::new(&mut self.json_data.start_date).id_source("start_date_picker")).changed();
                     ui.end_row();
+
                     ui.label("Reports Folder");
                     self.changed |= ui.add(TextEdit::singleline(&mut self.json_data.reports_folder)).changed();
                     ui.end_row();
+
                     ui.label("Environment");
                     ui.horizontal(|ui| {
                         for option in [Environment::Production, Environment::Development, Environment::Testing] {
-                            self.changed |= ui.selectable_value(&mut self.json_data.environment, option, option.to_user_friendly_label()).changed();
+                            // self.changed |= ui.selectable_value(&mut self.json_data.environment, option, option.to_user_friendly_label()).changed();
+                            self.changed |= ui.selectable_value(&mut self.json_data.environment, option, option.to_string()).changed();
                         }
                     });
                     ui.end_row();
+
                     ui.label("Assumption Profile");
                     ui.horizontal(|ui| {
                         for option in [AssumptionProfile::BaseCase, AssumptionProfile::Scenario1, AssumptionProfile::Scenario2, AssumptionProfile::Scenario3] {
-                            self.changed |= ui.selectable_value(&mut self.json_data.assumption_profile, option, option.to_user_friendly_label()).changed();
+                            self.changed |= ui.selectable_value(&mut self.json_data.assumption_profile, option, option.to_string()).changed();
                         }
                     });
                     ui.end_row();
+
                     ui.label("Optimizer");
                     ui.horizontal(|ui| {
                         for option in [Optimizer::Highs, Optimizer::Cbc, Optimizer::Gurobi] {
-                            self.changed |= ui.selectable_value(&mut self.json_data.optimizer, option, option.to_user_friendly_label()).changed();
+                            self.changed |= ui.selectable_value(&mut self.json_data.optimizer, option, option.to_string()).changed();
                         }
                     });
                     ui.end_row();
+
                     ui.label("Forward Start Swap");
                     ui.horizontal(|ui| {
                         for option in [IncludedOrExcluded::Included, IncludedOrExcluded::Excluded] {
@@ -159,7 +174,7 @@ impl eframe::App for MyApp {
                     .show(ui, |ui| {
                     // special logic for lower/upper limit dragvalues because they affect each other
                     ui.label("LCR Lower Limit:");
-                    let response = ui.add(egui::DragValue::new(&mut self.json_data.lcr_lower_limit).speed(0.5).clamp_range(LCR_BOUND_MIN..=LCR_BOUND_MAX));
+                    let response = ui.add(DragValue::new(&mut self.json_data.lcr_lower_limit).speed(0.5).clamp_range(LCR_BOUND_MIN..=LCR_BOUND_MAX));
                     if response.changed() {
                         self.changed = true;
                         if self.json_data.lcr_lower_limit > self.json_data.lcr_upper_limit {
@@ -167,8 +182,9 @@ impl eframe::App for MyApp {
                         }
                     }
                     ui.end_row();
+
                     ui.label("LCR Upper Limit:");
-                    let response = ui.add(egui::DragValue::new(&mut self.json_data.lcr_upper_limit).speed(0.5).clamp_range(LCR_BOUND_MIN..=LCR_BOUND_MAX));
+                    let response = ui.add(DragValue::new(&mut self.json_data.lcr_upper_limit).speed(0.5).clamp_range(LCR_BOUND_MIN..=LCR_BOUND_MAX));
                     if response.changed() {
                         self.changed = true;
                         if self.json_data.lcr_lower_limit > self.json_data.lcr_upper_limit {
@@ -213,6 +229,7 @@ impl eframe::App for MyApp {
                             }
                         });
                         ui.end_row();
+
                         ui.label("Must Borrow Benchmark in First Year");
                         ui.horizontal(|ui| {
                             for option in [true, false] {
@@ -234,6 +251,7 @@ impl eframe::App for MyApp {
                         ui.label("NII Horizon in Months");
                         self.changed |= ui.add(Slider::new(&mut self.json_data.delta_nii_horizon_months, 1..=36)).changed();
                         ui.end_row();
+
                         ui.label("Rate Shock Size");
                         Grid::new("curves_grid")
                             .striped(true)
@@ -336,78 +354,45 @@ impl Default for JsonData {
 }
 
 // Here we define the possible environments.
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Display, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
 enum Environment {
-    #[serde(rename = "PRODUCTION")] // what should be written in the JSON
     Production,
-    #[serde(rename = "DEVELOPMENT")]
     Development,
-    #[serde(rename = "TESTING")]
     Testing,
 }
 
-impl Environment {
-    // Here we define labels for the UI.
-    fn to_user_friendly_label(&self) -> &str {
-        match self {
-            Environment::Production => "Production",
-            Environment::Development => "Development",
-            Environment::Testing => "Testing",
-        }
-    }
-}
-
 // Here we define the possible assumption profiles.
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Display, PartialEq, Clone, Copy, Serialize, Deserialize)]
 enum AssumptionProfile {
     #[serde(rename = "BASE CASE")]
+    #[strum(serialize = "Base Case")]
     BaseCase,
     #[serde(rename = "SCENARIO 1")]
+    #[strum(serialize = "Scenario 1")]
     Scenario1,
     #[serde(rename = "SCENARIO 2")]
+    #[strum(serialize = "Scenario 2")]
     Scenario2,
     #[serde(rename = "SCENARIO 3")]
+    #[strum(serialize = "Scenario 3")]
     Scenario3,
 }
 
-impl AssumptionProfile {
-    fn to_user_friendly_label(&self) -> &str {
-        match self {
-            AssumptionProfile::BaseCase => "Base Case",
-            AssumptionProfile::Scenario1 => "Scenario 1",
-            AssumptionProfile::Scenario2 => "Scenario 2",
-            AssumptionProfile::Scenario3 => "Scenario 3",
-        }
-    }
-}
-
 // Here we define the possible optimizers.
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Display, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
 enum Optimizer {
-    #[serde(rename = "highs")]
     Highs,
-    #[serde(rename = "cbc")]
     Cbc,
-    #[serde(rename = "gurobi")]
     Gurobi,
 }
 
-impl Optimizer {
-    fn to_user_friendly_label(&self) -> &str {
-        match self {
-            Optimizer::Highs => "Highs",
-            Optimizer::Cbc => "CBC",
-            Optimizer::Gurobi => "Gurobi",
-        }
-    }
-}
-
 // Here we define the possible open fields.
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Display, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 enum IncludedOrExcluded {
-    #[serde(rename = "included")]
     Included,
-    #[serde(rename = "excluded")]
     Excluded,
 }
 
