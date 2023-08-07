@@ -65,18 +65,6 @@ fn load_image_from_path(path: &Path) -> Result<egui::ColorImage, image::ImageErr
     ))
 }
 
-// Generic function to render a widget.
-fn render_widget_with_change_tracking(
-    app: &mut MyApp,
-    ui: &mut Ui,
-    widget: impl egui::Widget,
-){
-    let response = ui.add(widget);
-    if response.changed(){
-        app.changed = true;
-    }
-}
-
 // Generic function to render a slider with a label.
 fn render_slider_with_label<T>(
     ui: &mut Ui,
@@ -181,16 +169,31 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // egui::SidePanel::right("logo-panel").show(ctx, |ui| {
         // });
+        egui::SidePanel::left("leftpanel").show(ctx, |ui| {// create logo
+            match &mut self.logo {
+                Some(logo) => {
+                    let size = logo.size_vec2() * 0.1;
+                    ui.image(logo, size)
+                },
+                None => ui.label("Logo not available"),
+            };
+            ui.horizontal(|ui| {
+                if ui.add(egui::widgets::Button::new("Save").min_size(egui::vec2(122.00,10.0))).clicked() {
+                    // Save the JSON data when the "Save" button is clicked
+                    match save_json_data(&self.json_data) {
+                        Ok(_) => println!("Data saved successfully!"),
+                        Err(e) => eprintln!("Error saving data: {}", e),
+                    }
+                }
+                if ui.add(egui::widgets::Button::new("Run").min_size(egui::vec2(122.00,10.0))).clicked() {
+                    // TODO
+                    eprintln!("Model not found");
+                }
+            });
+        });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
-                // create logo
-                match &mut self.logo {
-                    Some(logo) => {
-                        let size = logo.size_vec2() * 0.1;
-                        ui.image(logo, size)
-                    },
-                    None => ui.label("Logo not available"),
-                };
                 ui.heading("Run Setup");
                 Grid::new("run-setup-grid")
                     .striped(true)
@@ -343,16 +346,6 @@ impl eframe::App for MyApp {
                                 }
                             });
                     });
-
-                ui.horizontal(|ui| {
-                    if ui.button("Save").clicked() {
-                        // Save the JSON data when the "Save" button is clicked
-                        match save_json_data(&self.json_data) {
-                            Ok(_) => println!("Data saved successfully!"),
-                            Err(e) => eprintln!("Error saving data: {}", e),
-                        }
-                    }
-                });
             });
         });
     }
